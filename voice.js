@@ -1,20 +1,26 @@
-const voice = require('elevenlabs-node');
 require('dotenv').config();
-const apiKey = process.env.ELEVEN_API_KEY;
-const voiceID = process.env.ELEVEN_VOICE_ID;
 
-async function vocaliser(text, respondingTo) {
-    const filename = `audio/${respondingTo}--${new Date(new Date().getTime() + (3 * 60 * 60 * 1000)).toISOString().slice(0,10)}.mp3`;
+// Dispatcher: selects the active TTS provider via the TTS_PROVIDER env var.
+// Every provider module exports the same vocaliser(text, respondingTo) -> filePath
+// interface, so app.js stays provider-agnostic.
+//   elevenlabs (default) -> voiceElevenlabs.js
+//   60db                 -> voice60db.js
+const provider = (process.env.TTS_PROVIDER || 'elevenlabs').toLowerCase();
 
-    try {
-      await voice.textToSpeech(apiKey, voiceID, filename, text).then(res => {
-            console.log(`Success, Audio saved as: ${filename}`);
-        });
+const providers = {
+    elevenlabs: './voiceElevenlabs.js',
+    '60db': './voice60db.js',
+    sixtydb: './voice60db.js',
+};
 
-        return filename;
-      } catch (error) {
-        console.error(error);
-      }
+const modulePath = providers[provider];
+
+if (!modulePath) {
+    throw new Error(
+        `Unknown TTS_PROVIDER "${provider}". Use one of: ${Object.keys(providers).join(', ')}`
+    );
 }
 
-module.exports = vocaliser;
+console.log(`TTS provider: ${provider}`);
+
+module.exports = require(modulePath);
